@@ -1,0 +1,258 @@
+<Window x:Class="FontCrisp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="FontCrisp · Windows 字体锐化" Width="1080" Height="900" MinWidth="900" MinHeight="600"
+        FontFamily="{StaticResource UiFont}" FontSize="13.5" Foreground="{DynamicResource TextBrush}"
+        Background="{DynamicResource WindowBgBrush}"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Ideal" TextOptions.TextRenderingMode="ClearType" TextOptions.TextHintingMode="Animated"
+        WindowStartupLocation="CenterScreen">
+    <!-- Glass frame over the whole window so Mica shows through; DWM still draws the caption buttons. -->
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="52" GlassFrameThickness="-1" ResizeBorderThickness="6" CornerRadius="0" UseAeroCaptionButtons="True"/>
+    </WindowChrome.WindowChrome>
+
+    <DockPanel>
+        <!-- title area (draggable caption) -->
+        <Grid DockPanel.Dock="Top" Height="52" Margin="24,0,160,0">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Border Width="26" Height="26" CornerRadius="7" Background="{DynamicResource AccentBrush}" VerticalAlignment="Center" Margin="0,0,10,0">
+                    <TextBlock Text="A" Foreground="White" FontWeight="Bold" FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-1,0,0"/>
+                </Border>
+                <TextBlock Text="FontCrisp" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
+                <TextBlock Text="Windows 字体锐化" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="10,1,0,0"/>
+            </StackPanel>
+        </Grid>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="24,4,24,20" MaxWidth="1200">
+                <TextBlock Style="{StaticResource Muted}" Margin="4,0,4,14"
+                           Text="让 Windows 文字像 PopBar 一样黑实清晰：调整系统的 ClearType / DirectWrite 渲染参数（所见即所得预览），并修复因 DPI 拉伸而发虚的程序。所有改动只写当前用户设置，可一键恢复。"/>
+
+                <!-- ===== preview ===== -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel x:Name="PreviewHost">
+                        <DockPanel Margin="0,0,0,12">
+                            <TextBlock Style="{StaticResource H2}" Text="预览" DockPanel.Dock="Left" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                            <CheckBox x:Name="Flicker" Content="交替闪烁对比" DockPanel.Dock="Right" Margin="14,0,0,0" Click="Flicker_Click"
+                                      ToolTip="右栏每 0.65 秒在「当前系统」与「调整后」之间切换，细微差别一眼可见"/>
+                            <CheckBox x:Name="DarkBg" Content="深色背景" DockPanel.Dock="Right" Margin="14,0,0,0" Click="Param_Changed"/>
+                            <ComboBox x:Name="ZoomBox" SelectedIndex="0" DockPanel.Dock="Right" MinWidth="100" SelectionChanged="Param_Changed">
+                                <ComboBoxItem Content="1× 原大"/><ComboBoxItem Content="2× 放大"/><ComboBoxItem Content="3× 放大"/>
+                            </ComboBox>
+                            <TextBox x:Name="SampleText" Margin="0,0,12,0" TextChanged="Param_Changed"
+                                     Text="字体锐化 FontCrisp 微软雅黑 UI 13.5 号 The quick brown fox jumps over the lazy dog 0123456789"/>
+                        </DockPanel>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="当前系统（已生效的值）" FontWeight="Bold" Foreground="{DynamicResource MutedBrush}"/>
+                            <TextBlock Grid.Column="2" x:Name="RightHead" Text="调整后（下面的滑块）" FontWeight="Bold" Foreground="{DynamicResource AccentHoverBrush}"/>
+                        </Grid>
+                        <TextBlock Style="{StaticResource Muted}" Text="① DirectWrite / WPF 程序 · ClearType（PopBar、记事本、Office）"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource PreviewFrame}" Grid.Column="0"><Image x:Name="ImgDwCtA" Style="{StaticResource PreviewImg}"/></Border>
+                            <Border Style="{StaticResource PreviewFrame}" Grid.Column="2"><Image x:Name="ImgDwCtB" Style="{StaticResource PreviewImg}"/></Border>
+                        </Grid>
+                        <TextBlock Style="{StaticResource Muted}" Text="② DirectWrite 程序 · 灰度抗锯齿（设置、资源管理器、开始菜单、Windows Terminal 默认）— 只受「灰度对比增强」与 Gamma 影响"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource PreviewFrame}" Grid.Column="0"><Image x:Name="ImgDwGrayA" Style="{StaticResource PreviewImg}"/></Border>
+                            <Border Style="{StaticResource PreviewFrame}" Grid.Column="2"><Image x:Name="ImgDwGrayB" Style="{StaticResource PreviewImg}"/></Border>
+                        </Grid>
+                        <TextBlock Style="{StaticResource Muted}" Text="③ GDI 程序（旧式对话框、控制面板、很多第三方工具）— 左为真实 GDI 渲染，右为按滑块模拟的 GDI 经典模式"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource PreviewFrame}" Grid.Column="0" Margin="0,4,0,0"><Image x:Name="ImgGdiA" Style="{StaticResource PreviewImg}"/></Border>
+                            <Border Style="{StaticResource PreviewFrame}" Grid.Column="2" Margin="0,4,0,0"><Image x:Name="ImgGdiB" Style="{StaticResource PreviewImg}"/></Border>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- ===== shell UI font ===== -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource H2}" Text="界面字体（资源管理器 / 对话框 / 菜单）"/>
+                        <TextBlock Style="{StaticResource Muted}" Margin="0,0,0,12" TextWrapping="Wrap">
+                            资源管理器导航栏、文件列表、Win32 对话框和菜单用的是系统「图标 / 消息」字体，默认微软雅黑 UI 9pt。
+                            雅黑在这个字号下笔画被 hinting 压成 1 像素细线，所以显得又细又淡；换成没有 hinting 的中等字重字体（如 HarmonyOS Sans SC Medium），
+                            笔画是 2 像素、浓度和 PopBar 一致。顶部工具栏 / 标签栏是 WinUI，不受此影响。
+                        </TextBlock>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource Label}" Grid.Column="0" Text="字体"/>
+                            <ComboBox x:Name="UiFace" Grid.Column="1" MinWidth="260" SelectionChanged="UiFont_Changed"/>
+                            <TextBlock Style="{StaticResource Label}" Grid.Column="2" Text="字号" Margin="18,0,10,0"/>
+                            <ComboBox x:Name="UiSize" Grid.Column="3" MinWidth="90" SelectionChanged="UiFont_Changed">
+                                <ComboBoxItem Content="9 pt"/><ComboBoxItem Content="10 pt"/><ComboBoxItem Content="11 pt"/><ComboBoxItem Content="12 pt"/>
+                            </ComboBox>
+                            <TextBlock Style="{StaticResource Label}" Grid.Column="4" Text="字重" Margin="18,0,10,0"/>
+                            <ComboBox x:Name="UiWeight" Grid.Column="5" MinWidth="100" SelectionChanged="UiFont_Changed">
+                                <ComboBoxItem Content="常规"/><ComboBoxItem Content="中等"/><ComboBoxItem Content="半粗"/><ComboBoxItem Content="粗体"/>
+                            </ComboBox>
+                        </Grid>
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock x:Name="UiCurHead" Grid.Column="0" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                            <TextBlock x:Name="UiNewHead" Grid.Column="2" Style="{StaticResource Muted}" Margin="0,0,0,4" Text="选中的字体"/>
+                            <Border Style="{StaticResource PreviewFrame}" Grid.Column="0" Margin="0,22,0,0"><Image x:Name="ImgUiA" Style="{StaticResource PreviewImg}"/></Border>
+                            <Border Style="{StaticResource PreviewFrame}" Grid.Column="2" Margin="0,22,0,0"><Image x:Name="ImgUiB" Style="{StaticResource PreviewImg}"/></Border>
+                        </Grid>
+                        <DockPanel>
+                            <Button x:Name="UiRecommend" Content="推荐值" Click="UiRecommend_Click" DockPanel.Dock="Left"/>
+                            <Button x:Name="UiApplyBtn" Style="{StaticResource AccentButton}" Content="应用到系统" Click="UiApply_Click" DockPanel.Dock="Left"/>
+                            <Button x:Name="UiRestoreBtn" Content="恢复原字体" Click="UiRestore_Click" DockPanel.Dock="Left"/>
+                            <TextBlock x:Name="UiStatus" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="6,0,0,0" TextWrapping="Wrap"/>
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ===== parameters ===== -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource H2}" Text="渲染参数"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                            <TextBlock Style="{StaticResource Label}" Text="预设"/>
+                            <Button Content="锐利" Click="Preset_Click" Tag="0" FontWeight="Bold"/>
+                            <Button Content="Windows 默认" Click="Preset_Click" Tag="1"/>
+                            <Button Content="柔和" Click="Preset_Click" Tag="2"/>
+                            <Button Content="读取当前系统值" Click="Reload_Click"/>
+                        </StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <!-- DirectWrite / WPF -->
+                            <StackPanel Grid.Column="0">
+                                <TextBlock FontWeight="Bold" Text="DirectWrite / WPF（现代程序，含 PopBar）" Margin="0,0,0,8"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions><RowDefinition Height="30"/><RowDefinition Height="30"/><RowDefinition Height="30"/><RowDefinition Height="30"/><RowDefinition Height="40"/></Grid.RowDefinitions>
+                                    <TextBlock Style="{StaticResource Label}" Grid.Row="0" Text="ClearType 强度"/>
+                                    <Slider x:Name="DwCt" Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="100" TickFrequency="5" ValueChanged="Param_Changed"/>
+                                    <TextBlock Style="{StaticResource Val}" Grid.Row="0" Grid.Column="2" Text="{Binding ElementName=DwCt, Path=Value, StringFormat={}{0:0}%}"/>
+                                    <TextBlock Style="{StaticResource Label}" Grid.Row="1" Text="彩色对比增强"/>
+                                    <Slider x:Name="DwEc" Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="1000" TickFrequency="10" ValueChanged="Param_Changed"/>
+                                    <TextBlock Style="{StaticResource Val}" Grid.Row="1" Grid.Column="2" x:Name="DwEcVal"/>
+                                    <TextBlock Style="{StaticResource Label}" Grid.Row="2" Text="灰度对比增强"/>
+                                    <Slider x:Name="DwGec" Grid.Row="2" Grid.Column="1" Minimum="0" Maximum="1000" TickFrequency="10" ValueChanged="Param_Changed"/>
+                                    <TextBlock Style="{StaticResource Val}" Grid.Row="2" Grid.Column="2" x:Name="DwGecVal"/>
+                                    <TextBlock Style="{StaticResource Label}" Grid.Row="3" Text="Gamma"/>
+                                    <Slider x:Name="DwGamma" Grid.Row="3" Grid.Column="1" Minimum="1000" Maximum="2200" TickFrequency="50" ValueChanged="Param_Changed"/>
+                                    <TextBlock Style="{StaticResource Val}" Grid.Row="3" Grid.Column="2" x:Name="DwGammaVal"/>
+                                    <TextBlock Style="{StaticResource Label}" Grid.Row="4" Text="像素排列"/>
+                                    <ComboBox x:Name="DwPixel" Grid.Row="4" Grid.Column="1" HorizontalAlignment="Left" SelectionChanged="Param_Changed">
+                                        <ComboBoxItem Content="平面（无次像素）"/><ComboBoxItem Content="RGB（绝大多数屏幕）"/><ComboBoxItem Content="BGR"/>
+                                    </ComboBox>
+                                </Grid>
+                                <TextBlock Style="{StaticResource Muted}" Margin="0,8,0,0"
+                                           Text="对比增强越高笔画越黑；Gamma 越低越浓。写入 HKCU\Software\Microsoft\Avalon.Graphics\DISPLAYn，程序重启后读取。"/>
+                            </StackPanel>
+                            <!-- GDI -->
+                            <StackPanel Grid.Column="2">
+                                <TextBlock FontWeight="Bold" Text="GDI（传统 Win32 程序）" Margin="0,0,0,8"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions><RowDefinition Height="30"/><RowDefinition Height="40"/><RowDefinition Height="40"/><RowDefinition Height="30"/></Grid.RowDefinitions>
+                                    <TextBlock Style="{StaticResource Label}" Grid.Row="0" Text="字体平滑"/>
+                                    <CheckBox x:Name="GdiOn" Grid.Row="0" Grid.Column="1" Content="启用（关闭 = 无抗锯齿锯齿字）" Click="Param_Changed"/>
+                                    <TextBlock Style="{StaticResource Label}" Grid.Row="1" Text="平滑方式"/>
+                                    <ComboBox x:Name="GdiType" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Left" SelectionChanged="Param_Changed">
+                                        <ComboBoxItem Content="标准（灰度）"/><ComboBoxItem Content="ClearType（彩色次像素）"/>
+                                    </ComboBox>
+                                    <TextBlock Style="{StaticResource Label}" Grid.Row="2" Text="像素排列"/>
+                                    <ComboBox x:Name="GdiRgb" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Left" SelectionChanged="Param_Changed">
+                                        <ComboBoxItem Content="RGB"/><ComboBoxItem Content="BGR"/>
+                                    </ComboBox>
+                                    <TextBlock Style="{StaticResource Label}" Grid.Row="3" Text="对比度"/>
+                                    <Slider x:Name="GdiContrast" Grid.Row="3" Grid.Column="1" Minimum="1000" Maximum="2200" TickFrequency="50" ValueChanged="Param_Changed"/>
+                                    <TextBlock Style="{StaticResource Val}" Grid.Row="3" Grid.Column="2" Text="{Binding ElementName=GdiContrast, Path=Value, StringFormat={}{0:0}}"/>
+                                </Grid>
+                                <TextBlock Style="{StaticResource Muted}" Margin="0,8,0,0"
+                                           Text="1000 最浓黑，2200 最清淡（Windows 默认 1400）。通过 SystemParametersInfo 写入，应用后立即对所有 GDI 程序生效。"/>
+                            </StackPanel>
+                        </Grid>
+                        <DockPanel Margin="0,18,0,0">
+                            <Button x:Name="ApplyBtn" Style="{StaticResource AccentButton}" Content="应用到系统" Click="Apply_Click" DockPanel.Dock="Left"/>
+                            <Button x:Name="RestoreBtn" Content="恢复到 FontCrisp 之前" Click="Restore_Click" DockPanel.Dock="Left"/>
+                            <TextBlock x:Name="Status" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ===== DPI diagnosis ===== -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,6">
+                            <TextBlock Style="{StaticResource H2}" Text="发虚的程序" DockPanel.Dock="Left" Margin="0" VerticalAlignment="Center"/>
+                            <Button Content="重新扫描" Click="Refresh_Click" DockPanel.Dock="Right" HorizontalAlignment="Right" Margin="0"/>
+                            <CheckBox x:Name="ShowAll" Content="显示所有窗口" HorizontalAlignment="Right" DockPanel.Dock="Right" Margin="0,0,16,0" Click="Refresh_Click"/>
+                        </DockPanel>
+                        <TextBlock Style="{StaticResource Muted}" Margin="0,0,0,4"
+                                   Text="你的屏幕开了放大缩放，不会自己适配的老程序会被 Windows 当成图片整体放大，文字自然发虚。下面列出现在打开的、属于这种情况的程序：点「一键修复」，再把那个程序关掉重开就清晰了。其它程序本来就清晰，不用管。"/>
+                        <TextBlock x:Name="DiagText" Style="{StaticResource Muted}" Margin="0,0,0,10"/>
+                        <TextBlock x:Name="NoBlurry" Margin="0,4,0,10" Foreground="{DynamicResource AccentHoverBrush}" Visibility="Collapsed"
+                                   Text="✓ 现在打开的程序里没有发现因缩放而发虚的。如果某个程序看着糊，先把它打开再点「重新扫描」。"/>
+                        <ListView x:Name="WinList" MaxHeight="300">
+                            <ListView.Resources>
+                                <!-- cells: single line with ellipsis instead of wrapping into tall rows -->
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                    <Setter Property="TextWrapping" Value="NoWrap"/>
+                                    <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                </Style>
+                            </ListView.Resources>
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="程序" Width="160" DisplayMemberBinding="{Binding Process}"/>
+                                    <GridViewColumn Header="窗口标题" Width="260" DisplayMemberBinding="{Binding Title}"/>
+                                    <GridViewColumn Header="状态" Width="300" DisplayMemberBinding="{Binding Verdict}"/>
+                                    <GridViewColumn Header="操作" Width="200">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Button Style="{StaticResource SmallButton}" Content="一键修复" FontWeight="Bold" Tag="{Binding}" Click="FixGdi_Click"
+                                                            ToolTip="让 Windows 用 GDI 按你的缩放重新画这个程序的文字（即系统「兼容性 › 高 DPI 设置 › 系统(增强)」）。修复后请关掉该程序再打开。"
+                                                            Visibility="{Binding IsBlurry, Converter={StaticResource BoolToVis}}"/>
+                                                    <Button Style="{StaticResource SmallButton}" Content="换一种方式" Tag="{Binding}" Click="FixAware_Click"
+                                                            ToolTip="如果「一键修复」后界面错位，改用这个：不再放大该程序，文字清晰但界面会变小。"
+                                                            Visibility="{Binding IsFixed, Converter={StaticResource BoolToVis}}"/>
+                                                    <Button Style="{StaticResource SmallButton}" Content="撤销" Tag="{Binding}" Click="FixClear_Click"
+                                                            Visibility="{Binding IsFixed, Converter={StaticResource BoolToVis}}"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+                        <CheckBox x:Name="AutoFix" Margin="0,12,0,0" Click="AutoFix_Click"
+                                  Content="以后让 Windows 自动尝试修复这类程序（即系统设置里的「修复应用缩放」，对之后打开的程序生效）"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- ===== per-app ===== -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource H2}" Text="按程序开启 ClearType"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Style="{StaticResource Label}" Text="Windows Terminal"/>
+                            <TextBlock x:Name="TermStatus" Style="{StaticResource Label}" Foreground="{DynamicResource SubtleTextBrush}"/>
+                            <Button Content="切换为 ClearType" Click="TermClearType_Click"/>
+                            <Button Content="恢复灰度" Click="TermGray_Click"/>
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Muted}">
+                            改写 settings.json 里 profiles.defaults.antialiasingMode（先备份为 .fontcrisp.bak），Terminal 会热重载。<LineBreak/>
+                            <Run FontWeight="Bold">无法改成 ClearType 的程序：</Run>设置、资源管理器、开始菜单等 WinUI 界面只支持灰度，只能用「灰度对比增强」加黑；
+                            Edge / Chrome / VS Code 等 Chromium 程序用自带 Skia 渲染，只认 Gamma/对比的一部分。要在这些程序里强制彩色次像素，
+                            必须向每个进程注入 DLL 钩住 DirectWrite（MacType 的做法），本工具刻意不做。
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>
